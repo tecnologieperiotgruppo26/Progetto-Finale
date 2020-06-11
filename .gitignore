@@ -2,4 +2,4 @@ Pipfile
 Pipfile.lock
 __pycache__
 .idea
-.txt
+*.txt
