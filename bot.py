@@ -1,7 +1,7 @@
 # Dictionary on file
-{
-    "token": str   
-}
+# {
+#     "token": str   
+# }
 
 import json
 import telebot
@@ -32,6 +32,8 @@ class SmartHomeBot():
         print("Bot avviato...")
         
         # Variabili
+        self.server = "localhost:8080"
+        self.serviceID = -1
         self.temp = -1
         self.luci = ""
         self.ant = ""
@@ -137,6 +139,10 @@ class SmartHomeBot():
             self.ant = "OFF"
             self.bot.send_message(call.from_user.id,self.antifurto_message.format(self.ant),reply_markup=self._antifurto_menu_markup())
             self.bot.delete_message(call.message.chat.id,call.message.message_id)
+        
+        # Registrazione al catalog
+        res = requests.post(f"{server}/devices/new")
+        self.serviceID = json.loads(res.text)      
             
     def _main_menu_markup(self):
         # Menù principale
@@ -176,7 +182,7 @@ class SmartHomeBot():
         return menu
     
     def _getTemperatura(self,deviceID):
-        res = requests.get(f"https://localhost.com:8080/devices/{deviceID}")
+        res = requests.get(f"{self.server}/devices/{deviceID}")
         if res.status_code == 200:
             data = json.loads(res.text)
             if data['resources']['u'] == "c":
@@ -188,7 +194,7 @@ class SmartHomeBot():
         return -1
             
     def _getLuci(self,deviceID):
-        res = requests.get(f"https://localhost.com:8080/devices/{deviceID}")
+        res = requests.get(f"{self.server}/devices/{deviceID}")
         if res.status_code == 200:
             data = json.loads(res.text)
             if data['resources']['v'] == "1":
@@ -197,13 +203,25 @@ class SmartHomeBot():
                 return "OFF"
     
     def _getAntifurto(self,deviceID):
-        res = requests.get(f"https://localhost.com:8080/devices/{deviceID}")
+        res = requests.get(f"{self.server}/devices/{deviceID}")
         if res.status_code == 200:
             data = json.loads(res.text)
             if data['resources']['v'] == "1":
                 return "ON"
             else:
                 return "OFF"
+    
+    def _setTemperatura(self,deviceID):
+        # ToDo
+        requests.post(f"{self.server}/devices/{deviceID}")
+        
+    def _setLuci(self,deviceID):
+        # ToDo
+        requests.post(f"{self.server}/devices/{deviceID}")
+    
+    def _setAntifurto(self,deviceID):
+        # ToDo
+        requests.post(f"{self.server}/devices/{deviceID}")
     
     def _segnaleAntifurto(self,deviceID):
         # Mqtt subscriber agli eventi dell'antifurto da implementare come thread a sè che ascolta

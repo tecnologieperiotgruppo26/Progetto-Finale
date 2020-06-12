@@ -11,17 +11,40 @@ class Catalog():
     """
     exposed = True
     
+    def __init__(self):
+        self.deviceManager = DeviceManager()
+    
+    
     def GET(self, *uri, **params):
+        # Offre solo la possibilità di vedere la lista di risorse o la singola risorsa
         flag = self._isUriMultiple(uri)
         if uri[0] == "devices" and flag:
+            # Devices
             if isIDvalid(uri[1]): # deviceID
-                if int(uri[1]) < self.deviceManager.getNumberOfDevices():
-                    return self.deviceManager.getSingleDevice(int(uri[1]))
-                else:
-                    raise cherrypy.HTTPError(404, "Bad Request!")
+                res = self.deviceManager.getSingleDevice(uri[1])
+                    if res != "":
+                        return res
+                    else:
+                        raise cherrypy.HTTPError(404, "Bad Request!")
             else:
                 raise cherrypy.HTTPError(404, "Bad Request!")
-            
+        elif uri[0] == "devices":
+            return self.deviceManager.getDevices()
+        else:
+            pass
+    
+    def POST(self, *uri, **params):
+        # Offre solo la possibilità di registrare nuove risorse
+        flag = isUriMultiple(uri)
+        # Devices
+        if uri[0]=="devices" and flag:
+            if uri[1]=="new":
+                serviceID = self.deviceManager.addDevice(params['resources'],rest=params['rest'],mqtt=params['mqtt'])
+                return json.dumps(serviceID)
+            else:
+                raise cherrypy.HTTPError(404, "Bad Request!")
+        else:
+            raise cherrypy.HTTPError(404, "Bad Request!")
             
     def _isIDvalid(string):
         """Method that verifies if ID is an integer
@@ -50,5 +73,16 @@ class Catalog():
         if len(uri) > 1:
             return True
         return False
-    
+
+if __name__ == '__main__': 
+  conf = {
+    '/': {
+      'tools.sessions.on': True,
+      'request.dispatch': cherrypy.dispatch.MethodDispatcher(),
+      'tools.staticdir.root': os.path.abspath(os.getcwd()) 
+    }
+  }
+  cherrypy.tree.mount(Catalog(), '/', conf) 
+  cherrypy.engine.start()
+  cherrypy.engine.stop()
     

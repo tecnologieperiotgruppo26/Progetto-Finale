@@ -12,9 +12,9 @@ class FreeBoard(object):
 
     def POST(self, *uri, **params):
         if uri[0]=="saveDashboard":
-        with open('./freeboard/static/dashboard/dashboard.json', "w") as file:
-            print(f"{params['json_string']}")
-            file.write(params['json_string'])
+            with open('./freeboard/static/dashboard/dashboard.json', "w") as file:
+                print(f"{params['json_string']}")
+                file.write(params['json_string'])
 
 if __name__ == '__main__': 
     conf = {
