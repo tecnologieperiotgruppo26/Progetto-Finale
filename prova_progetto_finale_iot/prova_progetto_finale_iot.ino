@@ -128,7 +128,7 @@ void setup() {
   pinMode(soundPin, INPUT);
 
   pinMode(pirPin, INPUT);
-  //attachInterrupt(digitalPinToInterrupt(soundPin), checkSound, FALLING);
+  attachInterrupt(digitalPinToInterrupt(soundPin), checkSound, FALLING);
 
   setupSoundEvents(soundEvents);
 
@@ -223,8 +223,9 @@ void loop() {
   json = senMlEncode("heat", currentSpeed, "", basenameHeat);
   mqtt.publish(myBaseTopicHeat, json);
   json = senMlEncode("pres", flag, "", basenamePresence);
-  mqtt.publish(myBaseTopicPresence, json);
   
+  mqtt.publish(myBaseTopicPresence, json);
+ 
   /**
    *  Questo current millis indica il tempo trasorso dall'ultimo movimento
    *  rilevato dal sensore PIR, ovvero dall'ultima volta che ho registrato 
@@ -274,22 +275,22 @@ void setRegistered(const String& topic, const String& subtopic, const String& me
 
    */
   DeserializationError err = deserializeJson(doc_rec, message);
+  String iNeedName = doc_rec["bn"];
   if (doc_rec["e"][0]["n"] == "tmp"){
-    basenameTmp = doc_rec["bn"];
+    basenameTmp = iNeedName;
   }
-  else if ((doc_rec["e"][0]["n"] == "fan"){
-    basenameFan = doc_rec["bn"];
+  else if (doc_rec["e"][0]["n"] == "fan"){
+    basenameFan = iNeedName;
   }
   else if (doc_rec["e"][0]["n"] == "led"){
-    basenameLed = doc_rec["bn"];
+    basenameLed = iNeedName;
   }
   else if (doc_rec["e"][0]["n"] == "pres"){
-    basenamePres = doc_rec["bn"];
+    basenamePresence = iNeedName;
   }
   else if (doc_rec["e"][0]["n"] == "heat"){
-    basenameHeat = doc_rec["bn"];
+    basenameHeat = iNeedName;
   }
-  
 }
 
 
