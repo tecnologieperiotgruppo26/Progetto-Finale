@@ -30,13 +30,9 @@
 #include <Bridge.h>
 #include <BridgeServer.h>
 #include <BridgeClient.h>
-#include <ArduinoJson.h>
 #include <math.h>
 #include <LiquidCrystal_PCF8574.h>
 
-const int capacity = 128;
-DynamicJsonDocument doc_snd(capacity);
-DynamicJsonDocument doc_rec(capacity);
 
 float setPointTemp = 20.0;
 
@@ -58,7 +54,7 @@ const int fanPin = 10;
 /* Valore corrente speed da 0 a 255 */
 float currentSpeed = 0;
 float ledPower = 0;
-
+int lightValue = 0;
 const int soundPin = 7;
 const unsigned long timeoutPir = 1800000;         /* timeout pir, circa 30 minuto 1800 secondi */
 volatile unsigned long checkTimePir = 0;
@@ -94,8 +90,6 @@ String myBaseTopicTmp = "/tiot/26/catalog/tmp";
 String myBaseTopicFan = "/tiot/26/catalog/fan";   
 String myBaseTopicHeat = "/tiot/26/catalog/heat";   
 String myBaseTopicPresence = "/tiot/26/catalog/prs";
-String myBaseTopicResponse = "/tiot/26/catalog/+/res";
-String myBaseTopicLedONOFF = "/tiot/26/catalog/lgt";
 
 /**
  * questi sotto sono i topic di registrazione al catalog (?)
@@ -106,6 +100,7 @@ String myBaseTopicLedONOFF = "/tiot/26/catalog/lgt";
 String myBaseTopicLedReg = "/tiot/26/catalog/led/res";   //ledVerde
 String myBaseTopicTmpReg = "/tiot/26/catalog/tmp/res";
 String myBaseTopicFanReg = "/tiot/26/catalog/fan/res";   //anche riscaldamento
+String myBaseTopicHeatReg = "/tiot/26/catalog/heat/res";   //anche riscaldamento
 String myBaseTopicPresenceReg = "/tiot/26/catalog/prs/res";
 
 
@@ -124,6 +119,7 @@ void setup() {
   pinMode(ledPin, OUTPUT);
   analogWrite(fanPin, currentSpeed);
   pinMode(lightPin, OUTPUT);
+  digitalWrite(lightPin, lightValue);
 
   pinMode(soundPin, INPUT);
 
@@ -132,17 +128,21 @@ void setup() {
 
   setupSoundEvents(soundEvents);
 
-//  lcd.begin(16, 2);
-//  lcd.setBacklight(255);
-//  lcd.home();
-//  lcd.clear();
+  lcd.begin(16, 2);
+  lcd.setBacklight(255);
+  lcd.home();
+  lcd.clear();
   pinMode(13, OUTPUT);
   digitalWrite(13, LOW);
   Bridge.begin();
   digitalWrite(13, HIGH);
   mqtt.begin("mqtt.eclipse.org", 1883);
-  mqtt.subscribe(myBaseTopicLedONOFF, setLedValue);
-  mqtt.subscribe(myBaseTopicResponse, setRegistered);
+  mqtt.subscribe(myBaseTopicLed, setLedValue);
+  mqtt.subscribe(myBaseTopicLedReg, setRegistered);
+  mqtt.subscribe(myBaseTopicTmpReg, setRegistered);
+  mqtt.subscribe(myBaseTopicFanReg, setRegistered);
+  mqtt.subscribe(myBaseTopicHeatReg, setRegistered);
+  mqtt.subscribe(myBaseTopicPresenceReg, setRegistered);
   /**
    * setLedValue, ovvero il secondo argomento della funzione
    * subscribe serve ad associare una funzione al segnale di 
@@ -209,21 +209,20 @@ void loop() {
   /**
    * COMUNICAZIONE MQTT 
    */
-  Serial.print("sto prima della creazione json");
+  Serial.println("sto prima della creazione json");
   String json = senMlEncode("tmp", temp, "C", basenameTmp);
   mqtt.publish(myBaseTopicTmp, json);
   Serial.print("published tmp on topic");
   Serial.println(json);
   Serial.println(myBaseTopicTmp);
 
-  json = senMlEncode("led", ledPower, "", basenameLed);
-  mqtt.publish(myBaseTopicLed, json);
+  json = senMlEncode("Heat", ledPower, "", basenameHeat);
+  mqtt.publish(myBaseTopicHeat, json);
   json = senMlEncode("fan", currentSpeed, "", basenameFan);
   mqtt.publish(myBaseTopicFan, json);
-  json = senMlEncode("heat", currentSpeed, "", basenameHeat);
-  mqtt.publish(myBaseTopicHeat, json);
-  json = senMlEncode("pres", flag, "", basenamePresence);
-  
+  json = senMlEncode("light", (float)lightValue, "", basenameLed);
+  mqtt.publish(myBaseTopicLed, json);
+  json = senMlEncode("pres", float(flag), "", basenamePresence);  
   mqtt.publish(myBaseTopicPresence, json);
  
   /**
@@ -256,10 +255,19 @@ void loop() {
 }
 
 void setLedValue(const String& topic, const String& subtopic, const String& message){
-  deserializeJson(doc_rec, message);
+/*  deserializeJson(doc_rec, message);
       if(int(doc_rec["v"])==0 || int(doc_rec["v"])==1){
         digitalWrite(ledPin, (int)doc_rec["v"]);  
-  }
+  }*/
+  char tmp[100] = "", value[10] = "", resource[10] = "";
+  int onoff =0;
+  message.toCharArray(tmp, 99);
+  split(tmp,value, resource);
+  lightValue = atoi(value);
+  if(strcmp(resource, "led")&&(onoff==0 || onoff == 1)){
+   digitalWrite(lightPin, lightValue);
+   
+  }  
 }
 
 void setRegistered(const String& topic, const String& subtopic, const String& message){
@@ -273,10 +281,13 @@ void setRegistered(const String& topic, const String& subtopic, const String& me
   String basenameFan = "unregistered";
   String basenamePresence = "unregistered"; 
 
-   */
+   
   DeserializationError err = deserializeJson(doc_rec, message);
+  
   String iNeedName = doc_rec["bn"];
-  if (doc_rec["e"][0]["n"] == "tmp"){
+  Serial.println(iNeedName);
+  
+  if (doc_rec["e"][0]["n"] == "tmp"){ 
     basenameTmp = iNeedName;
   }
   else if (doc_rec["e"][0]["n"] == "fan"){
@@ -291,8 +302,67 @@ void setRegistered(const String& topic, const String& subtopic, const String& me
   else if (doc_rec["e"][0]["n"] == "heat"){
     basenameHeat = iNeedName;
   }
+  */
+  /*ORA PROVO A FARLO IN MANUALE*/
+  /*per prima cosa devo estrarre il bn*/
+  char tmp[100] = "", newName[10] = "", resource[10] = "";
+  message.toCharArray(tmp, 99);
+  split(tmp, newName, resource);
+  
+  if (strcmp(resource, "tmp")){ 
+    basenameTmp = newName;
+  }
+  else if (strcmp(resource, "fan")){
+    basenameFan = newName;
+  }
+  else if (strcmp(resource, "led")){
+    basenameLed = newName;
+  }
+  else if (strcmp(resource, "pres")){
+    basenamePresence = newName;
+  }
+  else if (strcmp(resource, "heat")){
+    basenameHeat = newName;
+  }
+  
 }
 
+void split(char tmp[100], char newName[10], char resource[10]){
+  /*io so che il basename lo trovo dopo bn e resource dopo il campo n*/
+  int i=0, j=0;
+  
+  while(i<99){
+    if(tmp[i] == "\""){
+      if (tmp[i++]== "b"){
+        if (tmp[i++]== "n"){
+          if (tmp[i++]== "\"") {
+            while(tmp[i++]!="\"");    /*salto gli spazi e = e mi posiziono sul bn da leggere*/
+              while(tmp[i]!="\""){
+              newName[j]= tmp[i];
+              i++;
+              j++;
+              }
+              newName[j]="\0";
+          }
+        }
+      }
+    }
+    if(tmp[i] == "\""){
+      if (tmp[i++]== "n"){
+        if (tmp[i++]== "\"") {
+          while(tmp[i++]!="\"");    /*salto gli spazi e = e mi posiziono sul bn da leggere*/
+            while(tmp[i]!="\""){
+            resource[j]= tmp[i];
+            i++;
+            j++;
+            }
+            resource[j]="\0";
+        }
+      }
+    }
+  }
+  
+}
 
 /**
  * funzione rileva temperatura
@@ -324,16 +394,39 @@ String senMlEncode(String res, float v, String unit, String bn){
    *              (si potrebbe semplificare per un caso reale
    *              ma preferisco mantenere leggibilità)
    *          unit = unità di misura del valore della risorsa
+   *          {"bn" = basename,
+   *           "c" = 0, 
+   *           "e" = {"n" = res,
+   *                  "v" = value,
+   *                  "u" = unit}
+   *          }
+   *                  
    */
+  Serial.println(res);
+  /*
   doc_snd.clear();
   doc_snd["bn"] = bn;
   doc_snd["c"] =  "0";
   doc_snd["e"][0]["n"] = res;
   doc_snd["e"][0]["v"] = v;
   doc_snd["e"][0]["u"] = unit;
-  
+  */
+  /*provo manualmente*/
+  String output;
+  output = "{\"bn\" = "; 
+  output = output + bn;
+  output = output + ",\"c\" = 0,";
+  output = output +"{\"e\" = {\"n\" = " ;
+  output = output + res;
+  output = output + ",\"v\" = ";
+  output = output + v ;
+  output = output +",{\"u\" = "; 
+  output = output + unit;
+  output = output +"}}";
+  /*
   String output;
   serializeJson(doc_snd, output);
+  */
   Serial.println(output);
   return output;
 }
