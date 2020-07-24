@@ -102,6 +102,8 @@ String myBaseTopicTmpReg = "/tiot/26/catalog/tmp/res";
 String myBaseTopicFanReg = "/tiot/26/catalog/fan/res";   //anche riscaldamento
 String myBaseTopicHeatReg = "/tiot/26/catalog/heat/res";   //anche riscaldamento
 String myBaseTopicPresenceReg = "/tiot/26/catalog/prs/res";
+String myBaseTopicResponse = "/tiot/26/catalog/+/res";
+
 
 
 
@@ -114,6 +116,8 @@ String basenameHeat = "unregistered";
 
 void setup() {
   // put your setup code here, to run once:
+  Serial.begin(9600);
+  Bridge.begin();
   pinMode(tempPin, INPUT);
   pinMode(fanPin, OUTPUT);
   pinMode(ledPin, OUTPUT);
@@ -124,32 +128,34 @@ void setup() {
   pinMode(soundPin, INPUT);
 
   pinMode(pirPin, INPUT);
-  attachInterrupt(digitalPinToInterrupt(soundPin), checkSound, FALLING);
+  ///attachInterrupt(digitalPinToInterrupt(soundPin), checkSound, FALLING);
 
   setupSoundEvents(soundEvents);
-
+   
   lcd.begin(16, 2);
   lcd.setBacklight(255);
   lcd.home();
   lcd.clear();
   pinMode(13, OUTPUT);
   digitalWrite(13, LOW);
-  Bridge.begin();
   digitalWrite(13, HIGH);
   mqtt.begin("mqtt.eclipse.org", 1883);
+  
   mqtt.subscribe(myBaseTopicLed, setLedValue);
+  /*
   mqtt.subscribe(myBaseTopicLedReg, setRegistered);
   mqtt.subscribe(myBaseTopicTmpReg, setRegistered);
   mqtt.subscribe(myBaseTopicFanReg, setRegistered);
   mqtt.subscribe(myBaseTopicHeatReg, setRegistered);
   mqtt.subscribe(myBaseTopicPresenceReg, setRegistered);
+  */
+  Serial.println("Almeno qui ci arrivo!");
   /**
    * setLedValue, ovvero il secondo argomento della funzione
    * subscribe serve ad associare una funzione al segnale di 
    * callback data dala notify di mqtt quando i dati sono
    * disponibili
    */
-  Serial.begin(9600);
   Serial.println("Lab 3.3 Starting:");
 }
 
@@ -310,19 +316,19 @@ void setRegistered(const String& topic, const String& subtopic, const String& me
   split(tmp, newName, resource);
   
   if (strcmp(resource, "tmp")){ 
-    basenameTmp = newName;
+    basenameTmp = (String)newName;
   }
   else if (strcmp(resource, "fan")){
-    basenameFan = newName;
+    basenameFan = (String)newName;
   }
   else if (strcmp(resource, "led")){
-    basenameLed = newName;
+    basenameLed = (String)newName;
   }
   else if (strcmp(resource, "pres")){
-    basenamePresence = newName;
+    basenamePresence = (String)newName;
   }
   else if (strcmp(resource, "heat")){
-    basenameHeat = newName;
+    basenameHeat = (String)newName;
   }
   
 }
@@ -412,21 +418,29 @@ String senMlEncode(String res, float v, String unit, String bn){
   doc_snd["e"][0]["u"] = unit;
   */
   /*provo manualmente*/
-  String output;
-  output = "{\"bn\" = "; 
-  output = output + bn;
-  output = output + ",\"c\" = 0,";
-  output = output +"{\"e\" = {\"n\" = " ;
-  output = output + res;
-  output = output + ",\"v\" = ";
-  output = output + v ;
-  output = output +",{\"u\" = "; 
-  output = output + unit;
-  output = output +"}}";
+  char bnChar[14], resChar[10], unitChar[2], vChar[10]; 
+  bn.toCharArray(bnChar, 14);
+  res.toCharArray(resChar, 10);
+  unit.toCharArray(unitChar, 2);
+  dtostrf(v, 4, 2, vChar);
+  
+  char output[150] = "";
+  strcat(output, "{\"bn\" = "); 
+  strcat(output,bnChar);
+  strcat(output, ",\"c\" = 0,");
+  strcat(output, "\"e\" = {\"n\" = ") ;
+  strcat(output,resChar);
+  strcat(output, ",\"v\" = ");
+  strcat(output, vChar) ;
+  strcat(output, ",\"u\" = "); 
+  strcat(output, unitChar);
+  strcat(output, "}}\0");
   /*
   String output;
   serializeJson(doc_snd, output);
   */
+  String myString=output;
+  Serial.println(myString);
   Serial.println(output);
   return output;
 }
