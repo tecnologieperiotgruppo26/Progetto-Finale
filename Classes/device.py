@@ -215,7 +215,7 @@ class DeviceManager(object):
       if device.resources[-1]["n"] == "heat":
         heat = device.resources[-1]["v"]
     if heat == 0:
-      return heat
+      return heat/255
     elif heat in range(1, 255):
       return heat
     else:
@@ -229,7 +229,7 @@ class DeviceManager(object):
     if fan == 0:
       return 0
     elif fan in range(1, 255):
-      return fan
+      return fan/255
     else:
       return -1
 
@@ -250,4 +250,3 @@ class DeviceManager(object):
 
   def getAntifurto(self):
     return self.antifurto
-    
