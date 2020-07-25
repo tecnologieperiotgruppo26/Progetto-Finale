@@ -250,3 +250,4 @@ class DeviceManager(object):
 
   def getAntifurto(self):
     return self.antifurto
+    
