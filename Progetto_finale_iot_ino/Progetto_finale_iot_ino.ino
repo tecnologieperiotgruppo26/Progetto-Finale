@@ -6,7 +6,6 @@
           iii. receive actuation commands via MQTT
           iv. receive messages to be displayed on the LCD monitor via MQTT
 
-      TODO: DA DECIDERE RIGA 96
  */
 
 /**
@@ -92,10 +91,7 @@ String myBaseTopicHeat = "/tiot/26/catalog/heat";
 String myBaseTopicPresence = "/tiot/26/catalog/prs";
 
 /**
- * questi sotto sono i topic di registrazione al catalog (?)
- * oppure vediamo se è meglio rispondere sullo stesso topic
- * ma con i valori json come si diceva con simo .
- * TODO:DA DECIDERE
+ * questi sotto sono i topic di registrazione al catalog 
  */
 String myBaseTopicLedReg = "/tiot/26/catalog/led/res";   //ledVerde
 String myBaseTopicTmpReg = "/tiot/26/catalog/tmp/res";
@@ -128,7 +124,7 @@ void setup() {
   pinMode(soundPin, INPUT);
 
   pinMode(pirPin, INPUT);
-  ///attachInterrupt(digitalPinToInterrupt(soundPin), checkSound, FALLING);
+  attachInterrupt(digitalPinToInterrupt(soundPin), checkSound, FALLING);
 
   setupSoundEvents(soundEvents);
    
@@ -151,12 +147,7 @@ void setup() {
   mqtt.subscribe(myBaseTopicPresenceReg, setRegistered);
   */
   Serial.println("Almeno qui ci arrivo!");
-  /**
-   * setLedValue, ovvero il secondo argomento della funzione
-   * subscribe serve ad associare una funzione al segnale di 
-   * callback data dala notify di mqtt quando i dati sono
-   * disponibili
-   */
+  
   Serial.println("Lab 3.3 Starting:");
 }
 
@@ -165,7 +156,7 @@ void loop() {
   mqtt.monitor();
   /**
    * monitor attiva la comunicazione in arrivo dai topic
-   * a cui si è iscritti, serve a chiamare la callback setLedValue
+   * a cui si è iscritti, serve a chiamare la callback
    */
   /**
    * Settaggio parametri di temperatura
@@ -249,7 +240,7 @@ void loop() {
    * il ciclo while dura 5 secondi, prima di ogni ciclo vado a cambiare la pagina
    * del LCD
    */
-  //lookLCD();
+  lookLCD();
  
   int delayMillis = int(millis()/1000);
   while (int(millis()/1000) - delayMillis <= sleepTime){
@@ -483,10 +474,7 @@ String senMlEncode(String res, float v, String unit, String bn){
   strcat(output, "\",\"u\" : \""); 
   strcat(output, unitChar);
   strcat(output, "\"}}\0");
-  /*
-  String output;
-  serializeJson(doc_snd, output);
-  */
+  
   char ciao[] = "ciaone";
   strcpy(ciao, output);
   String myString = String(ciao);
@@ -508,9 +496,11 @@ void setupSoundEvents(int vect[]) {
 
 void checkPresence(){
   if (digitalRead(pirPin)==HIGH){
-    flag = 1;
-    checkTimePir = millis();
-    Serial.println("Movimento rilevato!");
+    if (digitalRead(soundPin)==LOW){
+      flag = 1;
+      checkTimePir = millis();
+      Serial.println("Movimento rilevato!");
+    }
   }
 }
 void checkSound(){
