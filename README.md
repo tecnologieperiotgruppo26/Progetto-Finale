@@ -8,4 +8,4 @@ Formato da tre impianti principali:
 - antifurto
 
 Ogni impianto comunica col catalog e si comporta di conseguenza.
-I servizi che vengono forniti sono la dashboard e un bot telegram.
+Il servizio fornito è un bot telegram.
