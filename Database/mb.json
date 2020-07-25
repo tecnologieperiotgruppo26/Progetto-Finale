@@ -1,0 +1,5 @@
+{
+  "url": "mqtt.eclipse.org",
+  "port": 1883,
+  "catalogTopic": "/tiot/26/catalog/"
+}

@@ -1,143 +1,246 @@
-import threading
-import json
+# Classe per la gestione dei Devices
+#
+# Formato json:
+# {
+#   deviceID: "",
+#   rest: "",
+#   mqtt: ""
+#   resources: [],
+#   timestamp: ""
+# }
+
+import datetime
 import os
+import json
+import threading
+import time
 
-class DeviceEncoder(json.JSONEncoder):
-    
-    def default(self, obj):
-        if isinstance(obj, Device):
-            return {
-                'deviceID': obj.deviceID,
-                'resources': obj.resources,
-                'rest': obj.rest,
-                'mqtt': obj.mqtt
+##
+# Device object
+##
+class Device(object):
+
+  def __init__(self, deviceID, timestamp, resources, rest="", mqtt=""):
+    self.deviceID = deviceID
+    self.rest = rest
+    self.mqtt = mqtt
+    self.resources = resources
+    self.timestamp = timestamp
+
+  def updateAtrr(self,timestamp):
+    self.timestamp = timestamp
+
+  def getDeviceID(self):
+    return self.deviceID
+
+  def getTimestamp(self):
+    return self.timestamp
+
+  def addResource(self, resource):
+    self.resources.append(resource)
+
+  """
+  la funzione toDict serve a riportare correttamente tutti i parametri della classe device
+  per essere serializzata meglio dal json    
+  """
+  def toDict(self):
+    rest = {"deviceID" : "{}".format(self.deviceID),
+            "rest" : "{}".format(self.rest),
+            "mqtt" : "{}".format(self.mqtt),
+            "resources" : self.resources,
+            "timestamp" : "{}".format(self.timestamp)
             }
-        elif isinstance(obj, list):
-            tmp = []
-            for d in obj:
-                tmp.append(d.__dict__)
-            return tmp
+    return rest
+
+  def toString(self):
+    return "{}".format(self.toDict())
+
+##
+# DeviceManager object
+##
+class DeviceManager(object):
+
+  # Tempo in minuti prima dell'eleminazione se il timestamp non viene aggiornato
+  TIMEOUT = 60*60   #prova, da reimpostare a 2
+  tmp=[]
+
+  def __init__(self):
+    self.devices = []
+    self.n = 0
+    # Controllo json
+    if os.path.exists('Database/devices.json'):
+      with open('Database/devices.json') as f:
+        if os.path.getsize('Database/devices.json') > 0:
+          tmp = json.loads(f.read())['devices']
+          for obj in tmp:
+            self.devices.append(Device(obj['deviceID'],obj['timestamp'],obj['resources'],obj['rest'],obj['mqtt']))
+          # Mantiene consistenza nella numerazione degli elementi
+          if len(self.devices):
+            self.n = int(self.devices[-1].getDeviceID()) + 1
         else:
-            return "ERRORE"
+          f.close()
+          with open('Database/devices.json', "w") as f:
+            f.write('{"devices":[]}')
+    else:
+      with open('Database/devices.json', "w") as f:
+        f.write('{"devices":[]}')
 
-class DeviceManagerEncoder(json.JSONEncoder):
+    # Thread
+    self.lock = threading.Lock()
+    self.thread = threading.Thread(target=self.removeDevices)
+    self.thread.start()
+
+  # Stop Execution
+  def __del__(self):
+    self.thread.join(1)
+    self.lock.acquire()
+    print(f"{self.getDevicesForJson()}")
+    with open('Database/devices.json', "w") as file:
+      json.dump(self.getDevicesForJson(), file) 
+    self.lock.release()
+
+  # Add device
+  def addDevice(self, timestamp, resources, rest="", mqtt=""):
+    print("Sto per aggiungere un nuovo device")
+    deviceID = self.n
+    device = Device(deviceID, timestamp, resources, rest=rest, mqtt=mqtt)
+    self.devices.append(device)
+    self.n += 1
+
+    # Store object in devices.json
+    self.lock.acquire()
+    print(json.dumps(self.getDevicesForJson()))
+    with open('Database/devices.json', "w") as file:
+      json.dump(self.getDevicesForJson(), file)#      json.dump(self.devices, file)
+    self.lock.release()
     
-    def default(self, dm):
-        if isinstance(dm, DeviceManager):
-            return {
-                'n': dm.n,
-                'devices': DeviceEncoder().default(dm.devices),
-                'lock': dm.lock
-            }
-        else:
-            return "ERRORE"
+    # Ritorno l'id per comunicarlo al dispositivo che si è registrato
+    return deviceID
 
-class Device():
-    
-    def __init__(self, deviceID: str, resources: list, rest="", mqtt= ""):
-        self.deviceID = deviceID
-        self.resources = resources
-        self.rest = rest
-        self.mqtt = mqtt
+  # Get single device
+  def getSingleDevice(self, deviceID):
+    for device in self.devices:
+      if int(device.getDeviceID()) == deviceID:
+        return json.dumps(device.toDict())      #return json.dumps(device)  implemento il dict
+    return "{}"
 
-    def getDeviceID(self):
-        return self.deviceID
+  # Get all devices
+  def getDevices(self):
+    return json.dumps(self.getDevicesForJson())     #return json.dumps(self.devices), implemento json
 
-    def getTimestamp(self):
-        return self.timestamp
+  """
+  getDeviceForJSon ritorna un dizionario con la lista di tutti i devices impostati come dict
+  per essere trasformati in json
+  quindi un dizionario che comprende una lista di dizionari. json controllato con jsonlint
+  """
+  def getDevicesForJson(self):
+    listOfDevicesAsDicts = []
+    for device in self.devices:
+      listOfDevicesAsDicts.append(device.toDict())
+    res = {"devices" : listOfDevicesAsDicts}
+    return res
 
-    def addResource(self, resource):
-        self.resources.append(resource)
+  # Remove devices based on timestamp
+  def removeDevices(self):
+    while True:
+      tmp = []
+      # Vengono mantenute solo le risorse che non hanno fatte scadere TIMEOUT
+      for device in self.devices:
+        if time.time() - float(device.getTimestamp()) < self.TIMEOUT:
+          tmp.append(device)
+      self.devices = tmp
 
-class DeviceManager():
-    
-    def __init__(self):
-        self.n = 0
-        self.devices = []
-        self.lock = threading.Lock()
-        # Scrittura/Lettura da file
-        if os.path.exists('Database/devices.json'):
-            self.lock.acquire()
-            with open('Database/devices.json') as json_file:
-                if os.path.getsize('Database/devices.json') > 0:
-                    tmp_dict = json.load(json_file)
-                    self.n = tmp_dict['n']
-                    if tmp_dict['n'] > 0:
-                        self.devices = self._translateDevices(tmp_dict['devices'])
-                    else:
-                        self.devices = tmp_dict['devices']
-                else:
-                    json_file.close()
-                    self.lock.release()
-                    self._writeToFile
-        else:
-            self._saveToFile()
-        self.lock.release()
+      self.lock.acquire()
+      print("Sono nella removeDevices")
+      if os.path.exists('Database/devices.json'):
+        with open('Database/devices.json', "w") as file:
+          json.dump(self.getDevicesForJson(), file)#      json.dump(self.devices, file)
+      self.lock.release()
+      time.sleep(self.TIMEOUT)
 
-    def _translateDevices(self, devices: list):
-        """Translates a list of dict to a list of devices.
-
-        Args:
-            devices (list): list of dict
-
-        Returns:
-            list: list of devices
-        """
-        tmp_list = []
-        for d in devices:
-            tmp_list.append(Device(d['deviceID'],d['resources'],rest=d['rest'],mqtt=d['mqtt']))
-        return tmp_list
-    
-    def _saveToFile(self):
+  # Update an existin device
+  def updateDevice(self, deviceID, timestamp, resource = ""): # per altre info basta aggiungere altri argomenti al metodo
+    print("Sono entrato nella funzione update")
+    for device in self.devices:
+      if int(device.getDeviceID()) == int(deviceID):
+        print("MI TROVO NELLA UPDATEDEVICE")
+        device.updateAtrr(time.time())
+        device.addResource(dict(resource))
         self.lock.acquire()
-        with open('Database/devices.json', "w") as json_file:
-                json.dump(self,json_file,cls=DeviceManagerEncoder)
+        with open('Database/devices.json', "w") as file:
+          json.dump(self.getDevicesForJson(), file)  # json.dump(self.devices, file)
         self.lock.release()
-    
-    def addDevice(self, resources: list, rest="", mqtt=""):
-        """Used to add a device to the list
+      # else:
+      #   # Da definire come si vuole gestire, ma dal momento che siamo su mqtt penso si possa
+      #   # lasciare al caso l'avvenuta conferma
+      #   return 404
 
-        Args:
-            resources (list): list of resources
-            rest (str, optional): rest server. Defaults to "".
-            mqtt (str, optional): mqtt topic. Defaults to "".
+  def getNumberOfDevices(self):
+    return int(self.n)
 
-        Returns:
-            str: id of the object created
-        """
-        self.n += 1
-        self.devices.append(Device(str(self.n),resources,rest=rest,mqtt=rest))
-        self._saveToFile()
-        return str(self.n)
-        
-    def getSingleDevice(self, deviceID: str):
-        """Retrieves a single device from the list by its deviceID.
+  def getTemperature(self):
+    temperature = 0
+    for device in self.devices:
+      if device.resources[-1]["n"] == "temperature" or device.resources[-1]["n"] == "tmp":
+        temperature = device.resources[-1]["v"]
+    return temperature
 
-        Args:
-            deviceID (str): deviceID
+  def getAverageTemperature(self):
+    temperature = 0
+    cnt = 0
+    for device in self.devices:
+      if device.resources[-1]["n"] == "temperature" or device.resources[-1]["n"] == "tmp":
+        for x in range(0, len(device.resources)):
+          if device.resources[-1]["n"] == "temperature" or device.resources[-1]["n"] == "tmp":
+            temperature += device.resources[x]["v"]
+            cnt += 1
+    return temperature/cnt
 
-        Returns:
-            str: object rapresentation in json. Returns "{}" if the device does not exists
-        """
-        for d in self.devices:
-            if d.getDeviceID == deviceID:
-                return json.dumps(d)
-        return ""
-    
-    def getDevices(self):
-        # Forse c'è un problema con quello che ritorna questa funzione
-        return json.dumps(self.devices, cls=DeviceEncoder)
-    
-if __name__ == "__main__":
-    dm = DeviceManager()
-    d = Device("0",[],rest="rest")
-    d.addResource('ciao')
-    print(d)
-    print(d.__dict__)
-    dm.devices[-1].addResource("ciao")
-    print(dm.devices[-1])
-    print(dm.devices[-1].__dict__)
-    print(json.dumps(dm.devices,cls=DeviceEncoder))
-    print(json.dumps(dm,cls=DeviceManagerEncoder))
-    print(type(dm.devices))
-    
+  def getLighting(self):
+    light = 2
+    for device in self.devices:
+      if device.resources[-1]["n"] == "led":
+        light = device.resources[-1]["v"]
+    if light == 0:
+      return 0
+    elif light == 1:
+      return 1
+    else:
+      return -1
+
+  def getHeating(self):
+    heat = 256
+    for device in self.devices:
+      if device.resources[-1]["n"] == "heat":
+        heat = device.resources[-1]["v"]
+    if heat == 0:
+      return heat
+    elif heat in range(1, 255):
+      return heat
+    else:
+      return -1
+
+  def getCooling(self):
+    fan = 256
+    for device in self.devices:
+      if device.resources[-1]["n"] == "fan":
+        fan = device.resources[-1]["v"]
+    if fan == 0:
+      return 0
+    elif fan in range(1, 255):
+      return fan
+    else:
+      return -1
+
+  def getPresence(self):
+    presence = 2
+    for device in self.devices:
+      if device.resources[-1]["n"] == "pres":
+        presence = device.resources[-1]["v"]
+    if presence == 0:
+      return 0
+    elif presence == 1:
+      return 1
+    else:
+      return -1
+
