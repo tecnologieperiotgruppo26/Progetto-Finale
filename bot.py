@@ -83,13 +83,15 @@ class SmartHomeBot():
         def _temp_plus(call):
             self.bot.answer_callback_query(call.id)
             self.temp +=1
+            self._setTemperatura(self.temp)
             self.bot.send_message(call.from_user.id,self.termostato_message.format(self.temp),reply_markup=self._termostato_menu_markup())
             self.bot.delete_message(call.message.chat.id,call.message.message_id)
             
         @self.bot.callback_query_handler(lambda query: query.data == self._TEMP_MINUS)
         def _temp_minus(call):
             self.bot.answer_callback_query(call.id)
-            self.temp -=1 
+            self.temp -=1
+            self._setTemperatura(self.temp)
             self.bot.send_message(call.from_user.id,self.termostato_message.format(self.temp),reply_markup=self._termostato_menu_markup())
             self.bot.delete_message(call.message.chat.id,call.message.message_id)
         
@@ -97,7 +99,7 @@ class SmartHomeBot():
         @self.bot.callback_query_handler(lambda query: query.data == self._ILL)
         def _illuminaizione_menu(call):
             self.bot.answer_callback_query(call.id)
-            # Per ora l'id è statico, si può implementare una seleizione del singolo dispositivo con un menu
+            # Per ora l'id è statico, si può implementare una selezione del singolo dispositivo con un menu
             deviceID = 0
             self.luci = self._getLuci(deviceID)
             self.bot.send_message(call.from_user.id,self.illuminazione_message.format(self.luci),reply_markup=self._illuminazione_menu_markup())
@@ -107,13 +109,14 @@ class SmartHomeBot():
         def _illuminaizione_menu(call):
             self.bot.answer_callback_query(call.id)
             self.luci = "ON"
+            self._setLuci(1)
             self.bot.send_message(call.from_user.id,self.illuminazione_message.format(self.luci),reply_markup=self._illuminazione_menu_markup())
             self.bot.delete_message(call.message.chat.id,call.message.message_id)
         
         @self.bot.callback_query_handler(lambda query: query.data == self._ILL_OFF)
         def _illuminazione_menu(call):
             self.bot.answer_callback_query(call.id)
-            self.luci = "OFF"
+            self._setLuci(0)
             self.bot.send_message(call.from_user.id,self.illuminazione_message.format(self.luci),reply_markup=self._illuminazione_menu_markup())
             self.bot.delete_message(call.message.chat.id,call.message.message_id)
             
@@ -131,6 +134,7 @@ class SmartHomeBot():
         def _antifurto_menu(call):
             self.bot.answer_callback_query(call.id)
             self.ant = "ON"
+            self._setAntifurto(1)
             self.bot.send_message(call.from_user.id,self.antifurto_message.format(self.ant),reply_markup=self._antifurto_menu_markup())
             self.bot.delete_message(call.message.chat.id,call.message.message_id)
         
@@ -138,6 +142,7 @@ class SmartHomeBot():
         def _antifurto_menu(call):
             self.bot.answer_callback_query(call.id)
             self.ant = "OFF"
+            self._setAntifurto(0)
             self.bot.send_message(call.from_user.id,self.antifurto_message.format(self.ant),reply_markup=self._antifurto_menu_markup())
             self.bot.delete_message(call.message.chat.id,call.message.message_id)
         
@@ -183,46 +188,40 @@ class SmartHomeBot():
         return menu
     
     def _getTemperatura(self,deviceID):
-        res = requests.get(f"{self.server}/devices/{deviceID}")
-        if res.status_code == 200:
-            data = json.loads(res.text)
-            if data['resources']['u'] == "c":
-                return data['resources']['v'] + "°C"
-            elif data['resources']['u'] == "k":
-                return data['resources']['v'] + "K"
-            else:
-                return data['resources']['v'] + "F"
-        return -1
+        res = requests.get(f"{self.server}/temperature")
+        return res
             
     def _getLuci(self,deviceID):
-        res = requests.get(f"{self.server}/devices/{deviceID}")
-        if res.status_code == 200:
-            data = json.loads(res.text)
-            if data['resources']['v'] == "1":
-                return "ON"
-            else:
-                return "OFF"
+        res = requests.get(f"{self.server}/light")
+        if res==1:
+            return "ON"
+        elif res==0:
+            return "OFF"
+        else:
+            return "NaN"
     
     def _getAntifurto(self,deviceID):
-        res = requests.get(f"{self.server}/devices/{deviceID}")
-        if res.status_code == 200:
-            data = json.loads(res.text)
-            if data['resources']['v'] == "1":
-                return "ON"
-            else:
-                return "OFF"
+        res = requests.get(f"{self.server}/antifurto")
+        if res==1:
+            return "ON"
+        elif res==0:
+            return "OFF"
+        else:
+            return "NaN"
     
-    def _setTemperatura(self,deviceID):
-        # ToDo
-        requests.post(f"{self.server}/devices/{deviceID}")
+    def _setTemperatura(self,val):
+        payload = {'tmp': val}
+        requests.post(f"{self.server}/settemperature", data=payload)
         
-    def _setLuci(self,deviceID):
-        # ToDo
-        requests.post(f"{self.server}/devices/{deviceID}")
+    def _setLuci(self,val):
+        if val==1:
+            requests.post(f"{self.server}/luciON")
+        elif val==0:
+            requests.post(f"{self.server}/luciOFF")
     
-    def _setAntifurto(self,deviceID):
-        # ToDo
-        requests.post(f"{self.server}/devices/{deviceID}")
+    def _setAntifurto(self,val):
+        payload = {'val': val}
+        requests.post(f"{self.server}/setantifurto", data=payload)
     
     def _segnaleAntifurto(self,deviceID):
         # Mqtt subscriber agli eventi dell'antifurto da implementare come thread a sè che ascolta
