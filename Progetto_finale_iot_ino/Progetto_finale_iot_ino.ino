@@ -494,6 +494,9 @@ void setupSoundEvents(int vect[]) {
   }
 }
 
+/**
+ * implementazione sensor fusion
+ */
 void checkPresence(){
   if (digitalRead(pirPin)==HIGH){
     if (digitalRead(soundPin)==LOW){
