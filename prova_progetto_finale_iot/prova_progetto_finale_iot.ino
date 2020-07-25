@@ -103,7 +103,7 @@ String myBaseTopicFanReg = "/tiot/26/catalog/fan/res";   //anche riscaldamento
 String myBaseTopicHeatReg = "/tiot/26/catalog/heat/res";   //anche riscaldamento
 String myBaseTopicPresenceReg = "/tiot/26/catalog/prs/res";
 String myBaseTopicResponse = "/tiot/26/catalog/+/res";
-
+String myBaseTopicChangeTemperature = "/tiot/26/catalog/tmp/change";      /*TOPIC CHIAMATO DAL BOT TRAMITE IL CATALOG PER CAMBIARE TEMPERATURA*/
 
 
 
@@ -141,6 +141,7 @@ void setup() {
   digitalWrite(13, HIGH);
   mqtt.begin("mqtt.eclipse.org", 1883);
   
+  mqtt.subscribe(myBaseTopicChangeTemperature, setTmpValue);
   mqtt.subscribe(myBaseTopicLed, setLedValue);
   /*
   mqtt.subscribe(myBaseTopicLedReg, setRegistered);
@@ -266,13 +267,25 @@ void setLedValue(const String& topic, const String& subtopic, const String& mess
         digitalWrite(ledPin, (int)doc_rec["v"]);  
   }*/
   char tmp[100] = "", value[10] = "", resource[10] = "";
-  int onoff =0;
   message.toCharArray(tmp, 99);
   split(tmp,value, resource);
   lightValue = atoi(value);
-  if(strcmp(resource, "led")&&(onoff==0 || onoff == 1)){
+  if(strcmp(resource, "led")&&(lightValue==0 || lightValue == 1)){
    digitalWrite(lightPin, lightValue);
    
+  }  
+}
+void setTmpValue(const String& topic, const String& subtopic, const String& message){
+/*  deserializeJson(doc_rec, message);
+      if(int(doc_rec["v"])==0 || int(doc_rec["v"])==1){
+        digitalWrite(ledPin, (int)doc_rec["v"]);  
+  }*/
+  char tmp[100] = "", value[10] = "", resource[10] = "";
+  message.toCharArray(tmp, 99);
+  split(tmp,value, resource);
+  
+  if(strcmp(resource, "tmp")){
+   setPointTemp = atof(value);
   }  
 }
 
@@ -338,7 +351,7 @@ void split(char tmp[100], char newName[10], char resource[10]){
   int i=0, j=0;
   
   while(i<99){
-    if(tmp[i] == "\""){
+    if(tmp[i++] == "\""){
       if (tmp[i++]== "b"){
         if (tmp[i++]== "n"){
           if (tmp[i++]== "\"") {
@@ -353,7 +366,7 @@ void split(char tmp[100], char newName[10], char resource[10]){
         }
       }
     }
-    if(tmp[i] == "\""){
+    if(tmp[i++] == "\""){
       if (tmp[i++]== "n"){
         if (tmp[i++]== "\"") {
           while(tmp[i++]!="\"");    /*salto gli spazi e = e mi posiziono sul bn da leggere*/
@@ -418,31 +431,37 @@ String senMlEncode(String res, float v, String unit, String bn){
   doc_snd["e"][0]["u"] = unit;
   */
   /*provo manualmente*/
-  char bnChar[14], resChar[10], unitChar[2], vChar[10]; 
-  bn.toCharArray(bnChar, 14);
+  char bnChar[15], resChar[10], unitChar[2], vChar[10]; 
+  bn.toCharArray(bnChar, 15);
   res.toCharArray(resChar, 10);
   unit.toCharArray(unitChar, 2);
   dtostrf(v, 4, 2, vChar);
   
   char output[150] = "";
-  strcat(output, "{\"bn\" = "); 
-  strcat(output,bnChar);
-  strcat(output, ",\"c\" = 0,");
-  strcat(output, "\"e\" = {\"n\" = ") ;
-  strcat(output,resChar);
-  strcat(output, ",\"v\" = ");
+  strcat(output, "{\"bn\" : \""); 
+  strcat(output, bnChar);
+  strcat(output, "\",\"c\" : \"0\",");
+  strcat(output, "\"e\" : {\"n\" : \"") ;
+  strcat(output, resChar);
+  strcat(output, "\",\"v\" : \"");
   strcat(output, vChar) ;
-  strcat(output, ",\"u\" = "); 
+  strcat(output, "\",\"u\" : \""); 
   strcat(output, unitChar);
-  strcat(output, "}}\0");
+  strcat(output, "\"}}\0");
   /*
   String output;
   serializeJson(doc_snd, output);
   */
-  String myString=output;
+  char ciao[] = "ciaone";
+  strcpy(ciao, output);
+  String myString = String(ciao);
+  /*
+  String myString=String(output);
+  */
   Serial.println(myString);
+  
   Serial.println(output);
-  return output;
+  return myString;
 }
 
 void setupSoundEvents(int vect[]) {
