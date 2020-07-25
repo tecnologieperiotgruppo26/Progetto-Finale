@@ -135,8 +135,10 @@ class Catalog(object):
         return self.deviceManager.getCooling()
       elif uri[0] == "presence":
         return self.deviceManager.getPresence()
-      elif uri[0] == "lightining":
+      elif uri[0] == "light":
         return self.deviceManager.getLighting()
+      elif uri[0] == "antifurto":
+        return self.deviceManager.getAntifurto()
 
     #else generico per "homepage"
     else:
@@ -185,6 +187,14 @@ class Catalog(object):
         return f"{res}"
       else:
         raise cherrypy.HTTPError(404, "Bad Request!")
+    elif uri[0]== "luciON":
+      self.MQTTManager.lightOnOFF(1)
+    elif uri[0]== "luciOFF":
+      self.MQTTManager.lightOnOFF(0)
+    elif uri[0]== "settemperature":
+      self.MQTTManager.setTmp(params['tmp'])
+    elif uri[0] == "setantifurto":
+      self.deviceManager.setAntifurto(params['val'])
 
 if __name__ == '__main__': 
   conf = {

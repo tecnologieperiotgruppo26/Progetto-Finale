@@ -99,12 +99,12 @@ String myBaseTopicPresence = "/tiot/26/catalog/prs";
  */
 String myBaseTopicLedReg = "/tiot/26/catalog/led/res";   //ledVerde
 String myBaseTopicTmpReg = "/tiot/26/catalog/tmp/res";
-String myBaseTopicFanReg = "/tiot/26/catalog/fan/res";   //anche riscaldamento
-String myBaseTopicHeatReg = "/tiot/26/catalog/heat/res";   //anche riscaldamento
+String myBaseTopicFanReg = "/tiot/26/catalog/fan/res";   
+String myBaseTopicHeatReg = "/tiot/26/catalog/heat/res";   
 String myBaseTopicPresenceReg = "/tiot/26/catalog/prs/res";
 String myBaseTopicResponse = "/tiot/26/catalog/+/res";
 String myBaseTopicChangeTemperature = "/tiot/26/catalog/tmp/change";      /*TOPIC CHIAMATO DAL BOT TRAMITE IL CATALOG PER CAMBIARE TEMPERATURA*/
-
+String myBaseTopicLedOnOff = "/tiot/26/catalog/led/onoff";
 
 
 String basenameTmp = "unregistered";
@@ -140,9 +140,9 @@ void setup() {
   digitalWrite(13, LOW);
   digitalWrite(13, HIGH);
   mqtt.begin("mqtt.eclipse.org", 1883);
-  
+  mqtt.subscribe(myBaseTopicResponse, setRegistered);
   mqtt.subscribe(myBaseTopicChangeTemperature, setTmpValue);
-  mqtt.subscribe(myBaseTopicLed, setLedValue);
+  mqtt.subscribe(myBaseTopicLedOnOff, setLedValue);
   /*
   mqtt.subscribe(myBaseTopicLedReg, setRegistered);
   mqtt.subscribe(myBaseTopicTmpReg, setRegistered);
@@ -268,7 +268,7 @@ void setLedValue(const String& topic, const String& subtopic, const String& mess
   }*/
   char tmp[100] = "", value[10] = "", resource[10] = "";
   message.toCharArray(tmp, 99);
-  split(tmp,value, resource);
+  splitSet(tmp,value, resource);
   lightValue = atoi(value);
   if(strcmp(resource, "led")&&(lightValue==0 || lightValue == 1)){
    digitalWrite(lightPin, lightValue);
@@ -282,11 +282,46 @@ void setTmpValue(const String& topic, const String& subtopic, const String& mess
   }*/
   char tmp[100] = "", value[10] = "", resource[10] = "";
   message.toCharArray(tmp, 99);
-  split(tmp,value, resource);
+  splitSet(tmp,value, resource);
   
   if(strcmp(resource, "tmp")){
    setPointTemp = atof(value);
   }  
+}
+
+void splitSet(char tmp[100], char value[10], char resource[10]){
+  /*io so che il basename lo trovo dopo bn e resource dopo il campo n*/
+  int i=0, j=0;
+  
+  while(i<99){
+    if(tmp[i++] == "\""){
+        if (tmp[i++]== "n"){
+          if (tmp[i++]== "\"") {
+            while(tmp[i++]!="\"");    /*salto gli spazi e = e mi posiziono sul bn da leggere*/
+              while(tmp[i]!="\""){
+              resource[j]= tmp[i];
+              i++;
+              j++;
+              }
+              resource[j]="\0";
+          }
+        }
+    }
+    if(tmp[i++] == "\""){
+      if (tmp[i++]== "v"){
+        if (tmp[i++]== "\"") {
+          while(tmp[i++]!="\"");    /*salto gli spazi e = e mi posiziono sul bn da leggere*/
+            while(tmp[i]!="\""){
+            value[j]= tmp[i];
+            i++;
+            j++;
+            }
+            value[j]="\0";
+        }
+      }
+    }
+  }
+  
 }
 
 void setRegistered(const String& topic, const String& subtopic, const String& message){

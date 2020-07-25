@@ -67,6 +67,7 @@ class DeviceManager(object):
   def __init__(self):
     self.devices = []
     self.n = 0
+    self.antifurto = 0
     # Controllo json
     if os.path.exists('Database/devices.json'):
       with open('Database/devices.json') as f:
@@ -244,3 +245,8 @@ class DeviceManager(object):
     else:
       return -1
 
+  def setAntifurto(self, valore):
+    self.antifurto = valore
+
+  def getAntifurto(self):
+    return self.antifurto
