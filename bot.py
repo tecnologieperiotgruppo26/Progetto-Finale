@@ -18,6 +18,7 @@ class Credentials():
         Returns:
             dict: credentials
         """
+        # Credentials.txt viene omesso in quanto contiene le chiavi private per Telegrams
         with open("credentials.txt") as file:
             text = file.read()
             credentials = json.loads(text)
