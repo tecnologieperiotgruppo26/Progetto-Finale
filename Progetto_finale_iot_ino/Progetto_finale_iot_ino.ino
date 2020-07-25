@@ -236,7 +236,7 @@ void loop() {
 
   /**
    * Al posto della delay uitilizzo un ciclo while 
-   * in cui attento il passare del tempo e checko la presenza di movimenti
+   * in cui attendo il passare del tempo e controllo la presenza di movimenti
    * il ciclo while dura 5 secondi, prima di ogni ciclo vado a cambiare la pagina
    * del LCD
    */
@@ -317,9 +317,9 @@ void splitSet(char tmp[100], char value[10], char resource[10]){
 
 void setRegistered(const String& topic, const String& subtopic, const String& message){
   /**
-   * il parametro subtopic non funziona correttamente, si mangia la penultima lettera 
-   * e ritorna solo l'ultima, non gli ultimi caratteri che vanno a formare il subtopic
-   *  tmp, fan, led, pres
+   * il parametro subtopic non funziona correttamente, taglia la penultima lettera 
+   * e ritorna solo l'ultima -> non gli ultimi caratteri che vanno a formare il subtopic
+   * tmp, fan, led, pres
    *  
   String basenameTmp = "unregistered";
   String basenameLed = "unregistered";
